@@ -18,10 +18,6 @@ interface BoxProps {
   [key: string]: any;
 }
 
-interface Props extends BoxProps {
-  
-}
-
 const BLOCKCHAIN_PRIORITIES: Record<string, number> = {
   'Osmosis': 100,
   'Ethereum': 50,
@@ -79,27 +75,23 @@ const WalletRow: React.FC<{
   );
 };
 
-const WalletPage: React.FC<Props> = ({ children, ...rest }) => {
+const WalletPage: React.FC<BoxProps> = ({ children, ...rest }) => {
   const balances = useWalletBalances();
   const prices = usePrices();
-
-  const calculatePriority = useCallback((blockchain: string) => {
-    return getPriority(blockchain);
-  }, []);
 
   const sortedBalances = useMemo(() => {
     return balances
       .filter((balance: WalletBalance) => {
-        const balancePriority = calculatePriority(balance.blockchain);
+        const balancePriority = getPriority(balance.blockchain);
         return balancePriority > DEFAULT_PRIORITY && balance.amount > 0;
       })
       .sort((lhs: WalletBalance, rhs: WalletBalance) => {
-        const leftPriority = calculatePriority(lhs.blockchain);
-        const rightPriority = calculatePriority(rhs.blockchain);
+        const leftPriority = getPriority(lhs.blockchain);
+        const rightPriority = getPriority(rhs.blockchain);
         
         return rightPriority - leftPriority;
       });
-  }, [balances, calculatePriority]);
+  }, [balances]);
 
   const formattedBalances = useMemo(() => {
     return sortedBalances.map((balance: WalletBalance): FormattedWalletBalance => ({

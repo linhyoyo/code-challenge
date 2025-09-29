@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import App from './App';
 
-// Mock the WalletPage component
 jest.mock('./RefactoredWalletPage', () => {
   return function MockWalletPage({ children }: { children?: React.ReactNode }) {
     return (

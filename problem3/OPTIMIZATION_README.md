@@ -1,15 +1,156 @@
 # React Code Optimization
 
+## Overview
+
+This document outlines the critical issues found in the original React wallet component code and demonstrates how they were systematically addressed through refactoring. The optimizations cover runtime errors, type safety, performance, React best practices, and code quality improvements.
+
 ## Original Code Issues and Anti-patterns
 
-### 1. **Type Safety Issues**
-- **Problem**: `getPriority` function uses `any` type for blockchain parameter
-- **Impact**: Loss of type safety, potential runtime errors
-- **Solution**: Use proper string type and create a const assertion for blockchain priorities
+### 1. **Critical Runtime Errors**
+
+#### a. **Undefined Variable Reference**
+- **Problem**: `lhsPriority` is used in filter but never defined
+- **Impact**: Runtime error, application crashes
+- **Solution**: Use correct variable name `balancePriority`
 
 **Before:**
 ```typescript
-const getPriority = (blockchain: any): number => {
+const sortedBalances = useMemo(() => {
+  return balances.filter((balance: WalletBalance) => {
+    const balancePriority = getPriority(balance.blockchain);
+    if (lhsPriority > -99) {  // lhsPriority is undefined
+      // ...
+    }
+  })
+}, [balances, prices]);
+```
+
+**After:**
+```typescript
+const sortedBalances = useMemo(() => {
+  return balances.filter((balance: WalletBalance) => {
+    const balancePriority = getPriority(balance.blockchain);
+    return balancePriority > DEFAULT_PRIORITY && balance.amount > 0;
+  })
+}, [balances]);
+```
+
+#### b. **Incorrect Filter Logic**
+- **Problem**: Filter returns `true` when `balance.amount <= 0`, keeping zero/negative balances
+- **Impact**: Shows unwanted zero/negative balances to users
+- **Solution**: Fix logic to properly filter out zero/negative amounts
+
+**Before:**
+```typescript
+if (balancePriority > -99) {
+  if (balance.amount <= 0) {  // Wrong logic - keeps zero/negative
+    return true;
+  }
+}
+return false;
+```
+
+**After:**
+```typescript
+return balancePriority > DEFAULT_PRIORITY && balance.amount > 0;  // Correct logic
+```
+
+#### c. **Missing Return Value in Sort**
+- **Problem**: Sort function doesn't return 0 when priorities are equal
+- **Impact**: Unpredictable sorting behavior
+- **Solution**: Use subtraction which returns -1, 0, or 1
+
+**Before:**
+```typescript
+.sort((lhs: WalletBalance, rhs: WalletBalance) => {
+  const leftPriority = getPriority(lhs.blockchain);
+  const rightPriority = getPriority(rhs.blockchain);
+  
+  if (leftPriority > rightPriority) return -1;
+  if (leftPriority < rightPriority) return 1;
+  // Missing return 0 for equal priorities
+})
+```
+
+**After:**
+```typescript
+.sort((lhs: WalletBalance, rhs: WalletBalance) => {
+  const leftPriority = getPriority(lhs.blockchain);
+  const rightPriority = getPriority(rhs.blockchain);
+  
+  return rightPriority - leftPriority;  // Returns -1, 0, or 1
+})
+```
+
+### 2. **Type Safety Issues**
+
+#### a. **Missing Interface Properties**
+- **Problem**: `WalletBalance` interface missing `blockchain` property
+- **Impact**: TypeScript errors, runtime issues
+- **Solution**: Add missing properties to interfaces
+
+**Before:**
+```typescript
+interface WalletBalance {
+  currency: string;
+  amount: number;
+  // Missing blockchain property
+}
+
+// Later in code...
+const balancePriority = getPriority(balance.blockchain);  // TypeScript error
+```
+
+**After:**
+```typescript
+interface WalletBalance {
+  currency: string;
+  amount: number;
+  blockchain: string;  // Added missing property
+}
+
+interface FormattedWalletBalance extends WalletBalance {
+  formatted: string;
+}
+```
+
+#### b. **Type Mismatch in Mapping**
+- **Problem**: `rows` maps over `sortedBalances` typed as `WalletBalance`, but parameter is typed as `FormattedWalletBalance`
+- **Impact**: TypeScript errors, potential runtime issues
+- **Solution**: Map over `formattedBalances` instead
+
+**Before:**
+```typescript
+const rows = sortedBalances.map((balance: FormattedWalletBalance) => {  // Type mismatch
+  // sortedBalances is WalletBalance[], not FormattedWalletBalance[]
+})
+```
+
+**After:**
+```typescript
+const rows = useMemo(() => {
+  return formattedBalances.map((balance: FormattedWalletBalance) => {  // Correct type
+    const usdValue = prices[balance.currency] * balance.amount;
+    return (
+      <WalletRow 
+        key={`${balance.currency}-${balance.blockchain}`}
+        amount={balance.amount}
+        usdValue={usdValue}
+        formattedAmount={balance.formatted}
+      />
+    );
+  });
+}, [formattedBalances, prices]);
+```
+
+#### c. **Weak Typing**
+- **Problem**: `getPriority` uses `any` type for blockchain parameter
+- **Impact**: Loss of type safety, potential runtime errors
+- **Solution**: Use proper string type and create a const assertion
+
+**Before:**
+```typescript
+const getPriority = (blockchain: any): number => {  // Weak typing
   switch (blockchain) {
     case 'Osmosis':
       return 100
@@ -30,40 +171,9 @@ const BLOCKCHAIN_PRIORITIES: Record<string, number> = {
   'Neo': 20,
 } as const;
 
-const getPriority = (blockchain: string): number => {
+const getPriority = (blockchain: string): number => {  // Strong typing
   return BLOCKCHAIN_PRIORITIES[blockchain] ?? DEFAULT_PRIORITY;
 };
-```
-
-### 2. **Logic Errors**
-- **Problem**: Variable name mismatch (`lhsPriority` instead of `balancePriority`)
-- **Problem**: Incorrect filtering logic (should filter `> 0` amounts, not `<= 0`)
-- **Impact**: Incorrect filtering results, showing negative or zero balances
-- **Solution**: Fix variable names and correct the filtering condition
-
-**Before:**
-```typescript
-const sortedBalances = useMemo(() => {
-  return balances.filter((balance: WalletBalance) => {
-    const balancePriority = getPriority(balance.blockchain);
-    if (lhsPriority > -99) {  // Wrong variable name
-      if (balance.amount <= 0) {  // Wrong logic - should be > 0
-        return true;
-      }
-    }
-    return false
-  })
-}, [balances, prices]);
-```
-
-**After:**
-```typescript
-const sortedBalances = useMemo(() => {
-  return balances.filter((balance: WalletBalance) => {
-    const balancePriority = getPriority(balance.blockchain);
-    return balancePriority > DEFAULT_PRIORITY && balance.amount > 0;  // Fixed logic
-  })
-}, [balances, calculatePriority]);
 ```
 
 ### 3. **Performance Issues**
@@ -71,13 +181,11 @@ const sortedBalances = useMemo(() => {
 #### a. **Function Recreation on Every Render**
 - **Problem**: `getPriority` function is defined inside the component
 - **Impact**: New function created on every render, breaking memoization
-- **Solution**: Move function outside component or use `useCallback`
+- **Solution**: Move function outside component
 
 **Before:**
 ```typescript
 const WalletPage: React.FC<Props> = (props: Props) => {
-  // ... other code
-  
   const getPriority = (blockchain: any): number => {  // Recreated every render
     switch (blockchain) {
       case 'Osmosis':
@@ -99,14 +207,19 @@ const getPriority = (blockchain: string): number => {
   return BLOCKCHAIN_PRIORITIES[blockchain] ?? DEFAULT_PRIORITY;
 };
 
-const WalletPage: React.FC<Props> = (props: Props) => {
-  const calculatePriority = useCallback((blockchain: string) => {
-    return getPriority(blockchain);
-  }, []);
-  
+const WalletPage: React.FC<BoxProps> = ({ children, ...rest }) => {
   const sortedBalances = useMemo(() => {
-    // ... uses calculatePriority
-  }, [balances, calculatePriority]);
+    return balances
+      .filter((balance: WalletBalance) => {
+        const balancePriority = getPriority(balance.blockchain);
+        return balancePriority > DEFAULT_PRIORITY && balance.amount > 0;
+      })
+      .sort((lhs: WalletBalance, rhs: WalletBalance) => {
+        const leftPriority = getPriority(lhs.blockchain);
+        const rightPriority = getPriority(rhs.blockchain);
+        return rightPriority - leftPriority;
+      });
+  }, [balances]);
 }
 ```
 
@@ -126,7 +239,7 @@ const sortedBalances = useMemo(() => {
 ```typescript
 const sortedBalances = useMemo(() => {
   return balances.filter(/* ... */).sort(/* ... */);
-}, [balances, calculatePriority]);  // Only include used dependencies
+}, [balances]);  // Only include used dependencies
 ```
 
 #### c. **Missing Memoization**
@@ -139,14 +252,14 @@ const sortedBalances = useMemo(() => {
 const WalletPage: React.FC<Props> = (props: Props) => {
   // ... other code
   
-  const formattedBalances = sortedBalances.map((balance: WalletBalance) => {  // ❌ No memoization
+  const formattedBalances = sortedBalances.map((balance: WalletBalance) => {  // No memoization
     return {
       ...balance,
       formatted: balance.amount.toFixed()
     }
   })
 
-  const rows = sortedBalances.map((balance: FormattedWalletBalance, index: number) => {  // ❌ No memoization
+  const rows = sortedBalances.map((balance: FormattedWalletBalance, index: number) => {  // No memoization
     const usdValue = prices[balance.currency] * balance.amount;
     return (
       <WalletRow 
@@ -162,7 +275,7 @@ const WalletPage: React.FC<Props> = (props: Props) => {
 
 **After:**
 ```typescript
-const WalletPage: React.FC<Props> = (props: Props) => {
+const WalletPage: React.FC<BoxProps> = ({ children, ...rest }) => {
   // ... other code
   
   const formattedBalances = useMemo(() => {  // Memoized
@@ -188,7 +301,9 @@ const WalletPage: React.FC<Props> = (props: Props) => {
 }
 ```
 
-### 4. **Key Prop Anti-pattern**
+### 4. **React Anti-patterns**
+
+#### a. **Array Index as Key**
 - **Problem**: Using array index as React key
 - **Impact**: Poor performance during list updates, potential rendering bugs
 - **Solution**: Use unique, stable identifiers as keys
@@ -223,7 +338,62 @@ const rows = useMemo(() => {
 }, [formattedBalances, prices]);
 ```
 
-### 5. **Code Organization Issues**
+### 5. **Code Quality Issues**
+
+#### a. **Empty Props Interface**
+- **Problem**: `interface Props extends BoxProps {}` is redundant
+- **Impact**: Unnecessary code complexity, unclear intent
+- **Solution**: Use the base interface directly
+
+**Before:**
+```typescript
+interface BoxProps {
+  children?: React.ReactNode;
+  [key: string]: any;
+}
+
+interface Props extends BoxProps {
+  // Empty interface - redundant
+}
+
+const WalletPage: React.FC<Props> = (props: Props) => {
+  // ...
+}
+```
+
+**After:**
+```typescript
+interface BoxProps {
+  children?: React.ReactNode;
+  [key: string]: any;
+}
+
+const WalletPage: React.FC<BoxProps> = ({ children, ...rest }) => {  // Direct usage
+  // ...
+}
+```
+
+#### b. **Redundant Type Annotations**
+- **Problem**: `(props: Props)` is redundant when using `React.FC<Props>`
+- **Impact**: Verbose code, unnecessary type repetition
+- **Solution**: Let TypeScript infer types from React.FC generic
+
+**Before:**
+```typescript
+const WalletPage: React.FC<Props> = (props: Props) => {  // Redundant type annotation
+  const { children, ...rest } = props;
+  // ...
+}
+```
+
+**After:**
+```typescript
+const WalletPage: React.FC<BoxProps> = ({ children, ...rest }) => {  // Clean destructuring
+  // ...
+}
+```
+
+#### c. **Magic Numbers**
 - **Problem**: Magic numbers scattered throughout code
 - **Impact**: Hard to maintain, unclear intent
 - **Solution**: Extract to named constants
@@ -275,40 +445,7 @@ if (balancePriority > DEFAULT_PRIORITY) {  // Named constant
 }
 ```
 
-### 6. **Missing Properties**
-- **Problem**: `WalletBalance` interface missing `blockchain` property
-- **Impact**: TypeScript errors, runtime issues
-- **Solution**: Add missing properties to interfaces
-
-**Before:**
-```typescript
-interface WalletBalance {
-  currency: string;
-  amount: number;
-  // Missing blockchain property
-}
-
-// Later in code...
-const balancePriority = getPriority(balance.blockchain);  // TypeScript error
-```
-
-**After:**
-```typescript
-interface WalletBalance {
-  currency: string;
-  amount: number;
-  blockchain: string;  // Added missing property
-}
-
-interface FormattedWalletBalance {
-  currency: string;
-  amount: number;
-  formatted: string;
-  blockchain: string;  // Added missing property
-}
-```
-
-### 7. **Inconsistent Formatting**
+#### d. **Inconsistent Formatting**
 - **Problem**: `toFixed()` without decimal places
 - **Impact**: Poor user experience for currency display
 - **Solution**: Use appropriate decimal places (e.g., `toFixed(2)`)
