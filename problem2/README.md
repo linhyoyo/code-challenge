@@ -4,13 +4,13 @@ A modern, responsive currency swap form built with React, TypeScript, Vite, and 
 
 ## Features
 
-- 🎨 **Modern UI/UX**: Clean, intuitive design with smooth animations
-- 🔄 **Real-time Exchange Rates**: Live price data from the Switcheo API
-- 🪙 **Token Icons**: Beautiful token icons from the Switcheo token-icons repository
-- ✅ **Form Validation**: Comprehensive input validation with React Hook Form
-- 🔄 **Currency Swapping**: Easy currency selection with dropdown menus
-- ⚡ **Fast Performance**: Built with Vite for lightning-fast development
-- 🎭 **Backend Mocking**: MSW for realistic API simulation
+- **Modern UI/UX**: Clean, intuitive design with smooth animations
+- **Real-time Exchange Rates**: Live price data from the Switcheo API
+- **Token Icons**: Beautiful token icons from the Switcheo token-icons repository
+- **Form Validation**: Comprehensive input validation with React Hook Form
+- **Currency Swapping**: Easy currency selection with dropdown menus
+- **Fast Performance**: Built with Vite for lightning-fast development
+- **Backend Mocking**: MSW for realistic API simulation
 
 ## Tech Stack
 
@@ -21,6 +21,7 @@ A modern, responsive currency swap form built with React, TypeScript, Vite, and 
 - **React Hook Form** - Form management
 - **MSW** - API mocking
 - **Heroicons** - Icons
+- **Lucide React** - Additional icons
 
 ## Getting Started
 
