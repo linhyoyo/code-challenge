@@ -1,90 +1,54 @@
-import { useState, useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import React from 'react'
 import FormInput from './FormInput'
 import FormDropdown from './FormDropdown'
 import FormButton from './FormButton'
 import ExchangeRate from './ExchangeRate'
 import FormMessage from './FormMessage'
 import FormLabel from './FormLabel'
-import FormHint from './FormHint'
 import FormHeader from './FormHeader'
+import FormHint from './FormHint'
 import FormFooter from './FormFooter'
-import { CURRENCIES, TOKEN_ICON_MAP, API_ENDPOINTS, FORM_DEFAULTS } from '../constants/currencies'
+import { CURRENCIES } from '../constants/currencies'
+import { ERROR_MESSAGES } from '../constants/errors'
+import { useTokenPrices } from '../hooks/useTokenPrices'
+import { useDropdownState } from '../hooks/useDropdownState'
+import { useSwapForm } from '../hooks/useSwapForm'
+import { useSwapLogic } from '../hooks/useSwapLogic'
 
-interface Token {
-  currency: string
-  price: number
-  icon?: string
-}
+const CurrencySwapForm: React.FC = () => {
+  const { priceMap } = useTokenPrices()
+  const {
+    showFromDropdown,
+    showToDropdown,
+    toggleFromDropdown,
+    toggleToDropdown,
+    closeFromDropdown,
+    closeToDropdown,
+  } = useDropdownState()
 
-interface SwapFormData {
-  fromCurrency: string
-  toCurrency: string
-  fromAmount: string
-}
-
-const CurrencySwapForm = () => {
-  const [tokens, setTokens] = useState<Token[]>([])
-  const [toAmount, setToAmount] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [swapSuccess, setSwapSuccess] = useState(false)
-  const [apiError, setApiError] = useState('')
-  const [showFromDropdown, setShowFromDropdown] = useState(false)
-  const [showToDropdown, setShowToDropdown] = useState(false)
+  const {
+    form,
+    toAmount,
+    setToAmount,
+    isLoading,
+    setIsLoading,
+    swapSuccess,
+    setSwapSuccess,
+    apiError,
+    setApiError,
+    fromCurrency,
+    toCurrency,
+    fromAmount,
+  } = useSwapForm()
 
   const {
     register,
     handleSubmit,
-    watch,
     setValue,
     formState: { errors },
-  } = useForm<SwapFormData>({
-    defaultValues: {
-      fromCurrency: FORM_DEFAULTS.FROM_CURRENCY,
-      toCurrency: FORM_DEFAULTS.TO_CURRENCY,
-      fromAmount: FORM_DEFAULTS.FROM_AMOUNT,
-    },
-  })
+  } = form
 
-  const fromCurrency = watch('fromCurrency')
-  const toCurrency = watch('toCurrency')
-  const fromAmount = watch('fromAmount')
-
-  const priceMap = tokens.reduce(
-    (acc, token) => {
-      acc[token.currency] = token.price
-      return acc
-    },
-    {} as Record<string, number>
-  )
-
-  useEffect(() => {
-    const fetchPrices = async () => {
-      try {
-        const response = await fetch(API_ENDPOINTS.PRICES)
-        const data = await response.json()
-        setTokens(data)
-      } catch (error) {
-        console.error('Failed to fetch prices:', error)
-      }
-    }
-    fetchPrices()
-  }, [])
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element
-      if (!target.closest('.dropdown-container')) {
-        setShowFromDropdown(false)
-        setShowToDropdown(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [])
+  const { getTokenIcon } = useSwapLogic()
 
   const exchangeRate =
     fromCurrency && toCurrency && priceMap[fromCurrency] && priceMap[toCurrency]
@@ -101,24 +65,28 @@ const CurrencySwapForm = () => {
     setToAmount(tempFromAmount)
   }
 
-  const onSubmit = async (data: SwapFormData) => {
+  const onSubmit = async (data: {
+    fromCurrency: string
+    toCurrency: string
+    fromAmount: string
+  }) => {
     setApiError('')
     setSwapSuccess(false)
 
     if (!data.fromAmount || parseFloat(data.fromAmount) <= 0) {
-      setApiError('Please enter a valid amount greater than 0')
+      setApiError(ERROR_MESSAGES.INVALID_AMOUNT)
       setToAmount('')
       return
     }
 
     if (!data.fromCurrency || !data.toCurrency) {
-      setApiError('Please select both source and target currencies')
+      setApiError(ERROR_MESSAGES.MISSING_CURRENCIES)
       setToAmount('')
       return
     }
 
     if (data.fromCurrency === data.toCurrency) {
-      setApiError('Source and target currencies must be different')
+      setApiError(ERROR_MESSAGES.SAME_CURRENCIES)
       setToAmount('')
       return
     }
@@ -127,7 +95,7 @@ const CurrencySwapForm = () => {
     const toPrice = priceMap[data.toCurrency]
 
     if (!fromPrice || !toPrice) {
-      setApiError('Price data not available for selected currencies')
+      setApiError(ERROR_MESSAGES.PRICE_DATA_UNAVAILABLE)
       setToAmount('')
       return
     }
@@ -143,19 +111,13 @@ const CurrencySwapForm = () => {
       await new Promise((resolve) => setTimeout(resolve, 2000))
 
       setToAmount(calculatedAmount)
-
       setSwapSuccess(true)
     } catch (error) {
       console.error('Swap failed:', error)
-      setApiError('Swap failed. Please try again.')
+      setApiError(ERROR_MESSAGES.SWAP_FAILED)
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const getTokenIcon = (currency: string) => {
-    const iconName = TOKEN_ICON_MAP[currency] || currency
-    return `${API_ENDPOINTS.TOKEN_ICONS}/${iconName}.svg`
   }
 
   return (
@@ -186,11 +148,8 @@ const CurrencySwapForm = () => {
               />
               <FormDropdown
                 isOpen={showFromDropdown}
-                onToggle={() => {
-                  setShowFromDropdown(!showFromDropdown)
-                  setShowToDropdown(false)
-                }}
-                onClose={() => setShowFromDropdown(false)}
+                onToggle={toggleFromDropdown}
+                onClose={closeFromDropdown}
                 selectedCurrency={fromCurrency}
                 currencies={CURRENCIES}
                 onSelect={(currency) => setValue('fromCurrency', currency)}
@@ -206,7 +165,7 @@ const CurrencySwapForm = () => {
           </div>
 
           <div className="mb-6">
-            <FormLabel>{toAmount ? 'To (received)' : 'To (will receive)'}</FormLabel>
+            <FormLabel>To</FormLabel>
             <div className="flex items-start gap-3">
               <FormInput
                 register={register}
@@ -220,11 +179,8 @@ const CurrencySwapForm = () => {
               />
               <FormDropdown
                 isOpen={showToDropdown}
-                onToggle={() => {
-                  setShowToDropdown(!showToDropdown)
-                  setShowFromDropdown(false)
-                }}
-                onClose={() => setShowToDropdown(false)}
+                onToggle={toggleToDropdown}
+                onClose={closeToDropdown}
                 selectedCurrency={toCurrency}
                 currencies={CURRENCIES}
                 onSelect={(currency) => setValue('toCurrency', currency)}

@@ -6,7 +6,9 @@ function App() {
     // Start MSW in development
     if (import.meta.env.DEV) {
       import('./mocks/browser').then(({ worker }) => {
-        worker.start()
+        worker.start({
+          onUnhandledRequest: 'bypass',
+        })
       })
     }
   }, [])
