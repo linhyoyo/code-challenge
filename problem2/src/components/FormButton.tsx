@@ -9,7 +9,7 @@ interface FormButtonProps {
   loadingText?: string
   children: ReactNode
   className?: string
-  variant?: 'primary' | 'swap'
+  variant?: 'primary' | 'secondary' | 'swap'
 }
 
 const FormButton = ({
@@ -27,6 +27,8 @@ const FormButton = ({
   const variantClasses = {
     primary:
       'flex w-full transform items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 py-4 text-white shadow-lg hover:scale-[1.02] hover:from-blue-700 hover:to-purple-700 hover:shadow-xl active:scale-[0.98] disabled:cursor-not-allowed disabled:from-gray-300 disabled:to-gray-400',
+    secondary:
+      'flex w-full transform items-center justify-center gap-2 rounded-xl border-2 border-gray-300 bg-white py-4 text-gray-700 shadow-lg hover:scale-[1.02] hover:border-gray-400 hover:bg-gray-50 hover:shadow-xl active:scale-[0.98] disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400',
     swap: 'transform rounded-full bg-gradient-to-r from-blue-500 to-purple-500 p-3 shadow-lg transition-all hover:scale-110 hover:from-blue-600 hover:to-purple-600 hover:shadow-xl',
   }
 

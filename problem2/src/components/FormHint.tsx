@@ -5,7 +5,7 @@ interface FormHintProps {
 
 const FormHint = ({ isLoading, className = '' }: FormHintProps) => {
   return (
-    <p className={`mt-3 text-center text-xs text-gray-500 ${className}`}>
+    <p className={`mt-4 text-center text-xs text-gray-500 ${className}`}>
       {isLoading
         ? 'Please wait while we process your transaction...'
         : 'Click to execute the swap transaction'}

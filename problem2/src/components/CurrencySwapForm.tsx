@@ -10,6 +10,7 @@ import FormHint from './FormHint'
 import FormFooter from './FormFooter'
 import { CURRENCIES } from '../constants/currencies'
 import { ERROR_MESSAGES } from '../constants/errors'
+import { FORM_DEFAULTS } from '../constants/form'
 import { useTokenPrices } from '../hooks/useTokenPrices'
 import { useDropdownState } from '../hooks/useDropdownState'
 import { useSwapForm } from '../hooks/useSwapForm'
@@ -63,6 +64,15 @@ const CurrencySwapForm: React.FC = () => {
     setValue('toCurrency', tempFromCurrency)
     setValue('fromAmount', toAmount)
     setToAmount(tempFromAmount)
+  }
+
+  const handleReset = () => {
+    setValue('fromCurrency', FORM_DEFAULTS.FROM_CURRENCY)
+    setValue('toCurrency', FORM_DEFAULTS.TO_CURRENCY)
+    setValue('fromAmount', FORM_DEFAULTS.FROM_AMOUNT)
+    setToAmount('')
+    setApiError('')
+    setSwapSuccess(false)
   }
 
   const onSubmit = async (data: {
@@ -158,7 +168,7 @@ const CurrencySwapForm: React.FC = () => {
             </div>
           </div>
 
-          <div className="my-4 flex justify-center">
+          <div className="mt-4 flex justify-center">
             <FormButton type="button" onClick={handleSwap} variant="swap">
               Swap
             </FormButton>
@@ -200,14 +210,24 @@ const CurrencySwapForm: React.FC = () => {
 
           <FormMessage type="success" message="Swap completed successfully!" show={swapSuccess} />
 
-          <FormButton
-            type="submit"
-            disabled={isLoading || !fromAmount || !!errors.fromAmount}
-            isLoading={isLoading}
-            loadingText="Processing Swap..."
-          >
-            CONFIRM SWAP
-          </FormButton>
+          <div className="mt-8 flex gap-3">
+            <FormButton
+              type="button"
+              onClick={handleReset}
+              variant="secondary"
+              disabled={isLoading}
+            >
+              RESET
+            </FormButton>
+            <FormButton
+              type="submit"
+              disabled={isLoading || !fromAmount || !!errors.fromAmount}
+              isLoading={isLoading}
+              loadingText="Processing Swap..."
+            >
+              CONFIRM SWAP
+            </FormButton>
+          </div>
 
           <FormHint isLoading={isLoading} />
         </form>
